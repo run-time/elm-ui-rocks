@@ -88,10 +88,12 @@ this increases your chances of naming collisions so be careful.
 import StartApp
 import Effects
 import Task
+
 import Signal exposing
   ( forwardTo
   , Address
   )
+
 import Html exposing
   ( Html
   , div
@@ -102,23 +104,33 @@ import Html exposing
   , p
   , button
   )
+
 import Html.Attributes exposing
   ( class
   , style
   , href
   )
 
-import Array exposing (..)
-import Random exposing (Seed)
+import Array exposing
+  ( get
+  , fromList
+  )
+
+import Random exposing
+  ( Seed
+  )
+
+import Date exposing
+  ( millisecond
+  )
+
+import Ext.Date
 
 import Ui.NotificationCenter
 import Ui.Container
 import Ui.Button
 import Ui.App
 import Ui
-
-
-
 
 
 
@@ -134,20 +146,21 @@ type alias Model =
   , randInt : Int
   , playerChoice : String
   , cpuChoice : String
-  , gameResult : String
+  , gameResult : (Int, String)
+  , score : Int
   }
 
 init : Model
 init =
   { app = Ui.App.init "Elm-UI Rocks!"
   , notifications = Ui.NotificationCenter.init 4000 320
-  , seed = Random.initialSeed 97  --(round startTime)
+  , seed = Random.initialSeed ( millisecond (Ext.Date.now ()) )
   , randInt = -1
   , playerChoice = ""
   , cpuChoice = ""
-  , gameResult = ""
+  , gameResult = (0, "")
+  , score = 0
   }
-
 
 
 
@@ -159,7 +172,6 @@ Model update functions go here (a.k.a. controllers / business logic)
 type Action
   = App Ui.App.Action
   | Notices Ui.NotificationCenter.Action
-  | GenerateNewNumber
   | Rock
   | Paper
   | Scissors
@@ -183,13 +195,6 @@ update action model =
       in
         ({ model | notifications = notices }, Effects.map Notices effect)
 
-    GenerateNewNumber ->
-      let
-        ( newRand, newSeed ) =
-          Random.generate (Random.int 0 4) model.seed
-      in
-        ({ model | seed = newSeed, randInt = newRand }, Effects.none)
-
     Rock ->
       updatePlayerChoice "rock" model
 
@@ -206,23 +211,21 @@ update action model =
       updatePlayerChoice "spock" model
 
     ShowNotification ->
-      notify "Spock" model
+      notify model
 
 
-
-
-
-updatePlayerChoice : a -> { e | cpuChoice : b, playerChoice : c, randInt : d, seed : Seed } -> ( { e | cpuChoice : String, playerChoice : a, randInt : Int, seed : Seed }, Effects.Effects f )
+updatePlayerChoice : String -> { e | cpuChoice : a, gameResult : b, playerChoice : c, randInt : d, seed : Seed } -> ( { e | cpuChoice : String, gameResult : ( Int, String ), playerChoice : String, randInt : Int, seed : Seed}, Effects.Effects f)
 updatePlayerChoice choice model =
   let
     ( newRand, newSeed ) =
       Random.generate (Random.int 0 4) model.seed
   in
-    ({ model |
-      playerChoice = choice
-      , seed = newSeed
+    ({ model
+      | seed = newSeed
       , randInt = newRand
       , cpuChoice = (intToChoice newRand)
+      , playerChoice = choice
+      , gameResult = getResult ((choiceToInt choice), newRand)
       }, Effects.none)
 
 
@@ -230,19 +233,65 @@ intToChoice : Int -> String
 intToChoice i =
   Maybe.withDefault "error" ( Array.get i (Array.fromList ["rock","paper","scissors","lizard","spock"]) )
 
-possibleResults : List String
-possibleResults =
-  [ "Scissors cuts Paper"
-  , "Paper covers Rock"
-  , "Rock crushes Lizard"
-  , "Lizard poisons Spock"
-  , "Spock disassembles Scissors"
-  , "Scissors decapitates Lizard"
-  , "Lizard eats Paper"
-  , "Paper disproves Spock"
-  , "Spock vaporizes Rock"
-  , "Rock crushes Scissors"
-  ]
+
+choiceToInt : String -> Int
+choiceToInt s =
+  case s of
+  "rock" -> 0
+  "paper" -> 1
+  "scissors" -> 2
+  "lizard" -> 3
+  "spock" -> 4
+  _ -> -1
+
+
+getResult : (Int, Int) -> (Int, String)
+getResult (player, cpu) =
+  case (player, cpu) of
+    (0, 1) -> (-1, "Paper covers Rock")
+    (0, 2) -> (1, "Rock crushes Scissors")
+    (0, 3) -> (1, "Rock smashes Lizard")
+    (0, 4) -> (-1, "Spock vaporizes Rock")
+
+    (1, 0) -> (1, "Paper covers Rock")
+    (1, 2) -> (-1, "Scissors cuts Paper")
+    (1, 3) -> (-1, "Lizard eats Paper")
+    (1, 4) -> (1, "Paper disproves Spock")
+
+    (2, 0) -> (-1, "Rock crushes Scissors")
+    (2, 1) -> (1, "Scissors cuts Paper")
+    (2, 3) -> (1, "Scissors decapitates Lizard")
+    (2, 4) -> (-1, "Spock disassembles Scissors")
+
+    (3, 0) -> (-1, "Rock smashes Lizard")
+    (3, 1) -> (1, "Lizard eats Paper")
+    (3, 2) -> (-1, "Scissors decapitates Lizard")
+    (3, 4) -> (1, "Lizard poisons Spock")
+
+    (4, 0) -> (1, "Spock vaporizes Rock")
+    (4, 1) -> (-1, "Paper disproves Spock")
+    (4, 2) -> (1, "Spock disassembles Scissors")
+    (4, 3) -> (-1, "Lizard poisons Spock")
+
+    _ -> (0, "TIE")
+
+
+notify : Model -> (Model, Effects.Effects Action)
+notify model =
+  let
+    (notices, effect) = Ui.NotificationCenter.notify (getNotificationHtml model) model.notifications
+  in
+    ({ model | notifications = notices }, Effects.map Notices effect)
+
+
+getNotificationHtml : Model -> Html
+getNotificationHtml model =
+  case ( fst model.gameResult ) of
+    (1) -> (div [ class "win" ] [ text ( snd model.gameResult ) ])
+    (-1) -> (div [ class "lose" ] [ text ( snd model.gameResult ) ])
+    (0) -> (text ( snd model.gameResult ))
+    _ -> (text "error")
+
 
 {-------------------------------------------------------------------------------
 4. VIEW
@@ -267,24 +316,18 @@ view address model =
           , Ui.Button.primary "Scissors" address Scissors
           , Ui.Button.primary "Lizard" address Lizard
           , Ui.Button.primary "Spock" address Spock
-          , Ui.Button.primary "Show Notification" address ShowNotification
+          , Ui.Button.secondary "Show Notification" address ShowNotification
           ]
         ]
       , Ui.Container.row []
         [ div [ class ("card " ++ (model.playerChoice)) ] []
         , div [ class ("card " ++ (model.cpuChoice)) ] []
         ]
+      , Ui.Container.row []
+        [ div [ class "score-card" ] [ text ("Score: " ++ (toString model.score)) ]
+        ]
       ]
     ]
-
-
-notify : String -> Model -> (Model, Effects.Effects Action)
-notify message model =
-  let
-    (notices, effect) = Ui.NotificationCenter.notify (text message) model.notifications
-  in
-    ({ model | notifications = notices }, Effects.map Notices effect)
-
 
 app : StartApp.App Model
 app =
@@ -310,5 +353,3 @@ StartApp uses app.tasks to run a signal of tasks generated from events
 port tasks : Signal (Task.Task Effects.Never ())
 port tasks =
   app.tasks
-
---port startTime : Float
