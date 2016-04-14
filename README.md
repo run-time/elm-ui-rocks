@@ -1,6 +1,8 @@
 # elm-ui-rocks
 Learning to use elm-ui by building a simple rock, paper, scissors game
 
+`npm install elm-ui -g`
+
 `git clone https://github.com/run-time/elm-ui-rocks.git`
 
 `cd elm-ui-rocks`
