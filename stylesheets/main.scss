@@ -13,13 +13,18 @@ ui-app > ui-container {
       margin-right: 10px;
     }
   }
+
+  a {
+    color: #028fcf;
+    text-decoration: none;
+  }
 }
 
 .score-card {
   text-align: center;
+  width: 100%;
   border: 1px solid #dadada;
   padding: 10px 30px;
-  width: 100%;
   background: #f2f2f2;
 }
 
