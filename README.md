@@ -1,6 +1,17 @@
 # elm-ui-rocks
 Learning to use elm-ui by building a simple rock, paper, scissors game
 
+`git clone https://github.com/run-time/elm-ui-rocks.git`
+
+`cd elm-ui-rocks`
+
+`elm-ui install`
+
+`elm-ui server`
+
+[http://localhost:8002](http://localhost:8002)
+
+
 # GOALS
  - Fix the score to keep a running total of wins / losses
  - Fix game results to show notifications after each button click
